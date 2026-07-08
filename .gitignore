@@ -24,6 +24,8 @@ AdaptixClient/Libs/kddockwidgets/cmake_install.cmake
 AdaptixClient/Libs/kddockwidgets/*_autogen/
 AdaptixClient/Libs/kddockwidgets/*.a
 AdaptixClient/Libs/kddockwidgets/*_export.h
+!AdaptixClient/Libs/kddockwidgets/docks_export.h
+!AdaptixClient/Libs/kddockwidgets/fwd_headers/kddockwidgets/docks_export.h
 
 # VSCode
 .vscode/
