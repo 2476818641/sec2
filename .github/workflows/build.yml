@@ -1,0 +1,218 @@
+name: Build and Release
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  # ====================== Client (Windows MinGW) ======================
+  build-client-win:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Qt (MinGW)
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: '6.11.*'
+          host: 'windows'
+          target: 'desktop'
+          arch: 'win64_mingw'
+          modules: 'qtwebsockets qtdeclarative qtsvg'
+          tools: 'tools_mingw1310 tools_openssl_x64'
+          cache: true
+
+      - name: Add MinGW to PATH
+        shell: pwsh
+        run: |
+          echo "$env:IQTA_TOOLS\mingw1310_64\bin" | Out-File -Append $env:GITHUB_PATH
+
+      - name: Install Ninja
+        shell: pwsh
+        run: |
+          if (-not (Get-Command ninja -ErrorAction SilentlyContinue)) {
+            choco install ninja --no-progress -y
+          }
+
+      - name: Configure
+        shell: pwsh
+        run: |
+          cmake -S AdaptixClient -B build -G Ninja `
+            -DCMAKE_BUILD_TYPE=Release `
+            -DQT_INSTALL_PREFIX="$env:QT_ROOT_DIR" `
+            -DOPENSSL_ROOT_DIR="$env:IQTA_TOOLS\OpenSSL\Win_x64"
+
+      - name: Build
+        run: cmake --build build --config Release -j $env:NUMBER_OF_PROCESSORS
+
+      - name: Deploy with windeployqt
+        shell: pwsh
+        run: |
+          & "$env:QT_ROOT_DIR\bin\windeployqt.exe" build\AdaptixClient.exe --no-translations --no-compiler-runtime --no-opengl-sw
+          Remove-Item -Recurse -Force build\qmltooling  -ErrorAction SilentlyContinue
+          Remove-Item -Force build\D3Dcompiler_47.dll   -ErrorAction SilentlyContinue
+          Remove-Item -Force build\opengl32sw.dll        -ErrorAction SilentlyContinue
+          Get-ChildItem build\sqldrivers  -Filter *.dll | Where-Object { $_.Name -notmatch 'qsqlite|qsqlodbc' }  | Remove-Item -Force
+          Get-ChildItem build\imageformats -Filter *.dll | Where-Object { $_.Name -notmatch 'qgif|qico|qjpeg|qsvg' } | Remove-Item -Force
+
+      - name: Package (zip)
+        shell: pwsh
+        run: |
+          $items = @(
+            'build\AdaptixClient.exe',
+            'build\*.dll'
+          )
+          $dirs = @('platforms','styles','sqldrivers','imageformats','iconengines','networkinformation','tls','generic') |
+            ForEach-Object { "build\$_" } |
+            Where-Object { Test-Path $_ }
+          Compress-Archive -Path ($items + $dirs) -DestinationPath AdaptixClient-Windows.zip
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: AdaptixClient-Windows
+          path: AdaptixClient-Windows.zip
+
+  # ====================== Client (Linux) ======================
+  build-client-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y \
+            build-essential ninja-build \
+            libssl-dev libgl1-mesa-dev \
+            libxkbcommon-dev libxcb-*-dev
+
+      - name: Install Qt (Linux)
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: '6.11.*'
+          host: 'linux'
+          target: 'desktop'
+          arch: 'linux_gcc_64'
+          modules: 'qtwebsockets qtdeclarative qtsvg'
+          cache: true
+
+      - name: Configure
+        run: |
+          cmake -S AdaptixClient -B build -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_PREFIX_PATH="$QT_ROOT_DIR"
+
+      - name: Build
+        run: cmake --build build --config Release -j$(nproc)
+
+      - name: Package (tar.gz)
+        run: |
+          mkdir -p dist-client
+          cp build/AdaptixClient dist-client/
+          tar czf AdaptixClient-Linux.tar.gz -C dist-client .
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: AdaptixClient-Linux
+          path: AdaptixClient-Linux.tar.gz
+
+  # ====================== Server (Linux) ======================
+  build-server:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.25.4'
+          cache-dependency-path: |
+            AdaptixServer/go.sum
+            AdaptixServer/go.work.sum
+
+      - name: Install CGO dependencies
+        run: sudo apt-get install -y gcc
+
+      - name: Build extenders (Go plugins)
+        working-directory: AdaptixServer
+        run: |
+          for dir in extenders/*/; do
+            name=$(basename "$dir")
+            cfg="$dir/config.yaml"
+            sofile=$(grep 'extender_file' "$cfg" 2>/dev/null | sed 's/.*"\(.*\)".*/\1/' || echo "plugin.so")
+            echo "  Building extender: $name -> $sofile"
+            mkdir -p "$dir/dist"
+            (cd "$dir" && CGO_ENABLED=1 go build -buildmode=plugin -ldflags="-s -w" -o "dist/$sofile" ./*.go 2>&1) \
+              || echo "  Warning: $name build failed"
+          done
+
+      - name: Build server
+        working-directory: AdaptixServer
+        run: |
+          GOEXPERIMENT=jsonv2,greenteagc go build \
+            -buildvcs=false \
+            -ldflags="-s -w" \
+            -o adaptixserver .
+
+      - name: Package distribution
+        run: |
+          mkdir -p dist-server
+          cp AdaptixServer/adaptixserver  dist-server/
+          cp AdaptixServer/profile.yaml   dist-server/
+          cp AdaptixServer/404page.html   dist-server/
+          cp AdaptixServer/ssl_gen.sh     dist-server/
+          for dir in AdaptixServer/extenders/*/; do
+            name=$(basename "$dir")
+            mkdir -p "dist-server/extenders/$name"
+            cp "$dir/config.yaml"        "dist-server/extenders/$name/" 2>/dev/null || true
+            cp "$dir/ax_config.axs"      "dist-server/extenders/$name/" 2>/dev/null || true
+            cp "$dir/dist/"*.so          "dist-server/extenders/$name/" 2>/dev/null || true
+          done
+          tar czf AdaptixServer-Linux.tar.gz -C dist-server .
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: AdaptixServer-Linux
+          path: AdaptixServer-Linux.tar.gz
+
+  # ====================== Create Release ======================
+  release:
+    needs: [ build-client-win, build-client-linux, build-server ]
+    runs-on: ubuntu-latest
+    if: github.event_name != 'pull_request'
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v1.2-${{ github.run_number }}
+          name: AdaptixC2 v1.2 (Build #${{ github.run_number }})
+          body: |
+            ## AdaptixC2 v1.2 — 汉化版
+
+            - **客户端**: 支持中/英文界面切换，系统语言自动检测
+            - **服务端**: Linux 服务端（含 extenders）
+
+            ### 文件说明
+            - `AdaptixClient-Windows.zip` — Windows 客户端（解压即用）
+            - `AdaptixClient-Linux.tar.gz` — Linux 客户端
+            - `AdaptixServer-Linux.tar.gz` — Linux 服务端
+          files: |
+            AdaptixClient-Windows/AdaptixClient-Windows.zip
+            AdaptixClient-Linux/AdaptixClient-Linux.tar.gz
+            AdaptixServer-Linux/AdaptixServer-Linux.tar.gz
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
