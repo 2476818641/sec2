@@ -42,10 +42,6 @@ find_package(Qt6
         LinguistTools
 )
 
-if(WIN32)
-    find_package(Qt6 REQUIRED COMPONENTS EntryPoint)
-endif()
-
 include_directories(
         Headers
         Libs
@@ -298,7 +294,11 @@ target_link_libraries( AdaptixClient
 if(WIN32)
     # Build as a GUI (WINDOWS subsystem) app so no black console window appears.
     set_target_properties( AdaptixClient PROPERTIES WIN32_EXECUTABLE TRUE )
-    target_link_libraries( AdaptixClient PRIVATE Qt6::EntryPoint )
+    if(MSVC)
+        # WINDOWS subsystem normally needs WinMain; use the standard CRT entry
+        # so plain main() is used without depending on Qt6::EntryPoint.
+        target_link_options( AdaptixClient PRIVATE "/ENTRY:mainCRTStartup" )
+    endif()
 
     target_link_libraries( AdaptixClient
             PRIVATE
