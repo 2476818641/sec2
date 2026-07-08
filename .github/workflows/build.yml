@@ -35,7 +35,7 @@ jobs:
 
       - name: Configure
         run: |
-          cmake -S AdaptixClient -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH="$env:QT_ROOT_DIR"
+          cmake -S AdaptixClient -B build -G Ninja -DCMAKE_BUILD_TYPE=Release `-DCMAKE_PREFIX_PATH="$env:QT_ROOT_DIR" `-DCMAKE_CXX_FLAGS="/DNOMINMAX"
 
       - name: Build
         run: cmake --build build --config Release
