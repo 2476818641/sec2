@@ -2,7 +2,7 @@
 
 #define _WINSOCK_DEPRECATED_NO_WARNINGS
 #include <winsock2.h>
-#include <Windows.h>
+#include <windows.h>
 
 #define PROCESSOR_FEATURE_MAX 64
 
