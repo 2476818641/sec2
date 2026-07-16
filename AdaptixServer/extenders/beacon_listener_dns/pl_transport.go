@@ -4,7 +4,9 @@ import (
 	"bytes"
 	"compress/zlib"
 	"context"
-	"crypto/rc4"
+	"crypto/aes"
+	"crypto/cipher"
+	"crypto/rand"
 	"encoding/base32"
 	"encoding/base64"
 	"encoding/binary"
@@ -267,13 +269,23 @@ func (t *TransportDNS) handleHI(req *dnsRequest, w dns.ResponseWriter) {
 		return
 	}
 
-	cipher, err := rc4.NewCipher(keyBytes)
+	block, err := aes.NewCipher(keyBytes)
 	if err != nil {
 		return
 	}
-
-	fullBeat := make([]byte, len(req.data))
-	cipher.XORKeyStream(fullBeat, req.data)
+	aesgcm, err := cipher.NewGCM(block)
+	if err != nil {
+		return
+	}
+	nonceSize := aesgcm.NonceSize()
+	if len(req.data) < nonceSize {
+		return
+	}
+	nonce, cipherdata := req.data[:nonceSize], req.data[nonceSize:]
+	fullBeat, err := aesgcm.Open(nil, nonce, cipherdata, nil)
+	if err != nil {
+		return
+	}
 
 	if len(fullBeat) < 8 {
 		return
@@ -303,7 +315,7 @@ func (t *TransportDNS) handleHB(req *dnsRequest) (needsReset bool, hasPendingTas
 	}
 	t.mu.Unlock()
 
-	decrypted := rc4Crypt(req.data, t.Config.EncryptKey)
+	decrypted := aesGCMDecrypt(req.data, t.Config.EncryptKey)
 
 	var ackOffset, ackTaskNonce uint32
 	if len(decrypted) >= 4 {
@@ -346,7 +358,7 @@ func (t *TransportDNS) handleGET(req *dnsRequest, w dns.ResponseWriter) []byte {
 		_ = Ts.TsAgentSetTick(req.sid, t.Name)
 	}
 
-	decrypted := rc4Crypt(req.data, t.Config.EncryptKey)
+	decrypted := aesGCMDecrypt(req.data, t.Config.EncryptKey)
 
 	var reqOffset uint32
 	if len(decrypted) >= 4 {
@@ -398,7 +410,7 @@ func (t *TransportDNS) handlePUT(req *dnsRequest) putAckInfo {
 	}
 	t.mu.Unlock()
 
-	decrypted := rc4Crypt(req.data, t.Config.EncryptKey)
+	decrypted := aesGCMDecrypt(req.data, t.Config.EncryptKey)
 	ack = t.handlePutFragment(req.sid, req.seq, decrypted, ack)
 
 	if req.sid != "" {
@@ -710,7 +722,7 @@ func (t *TransportDNS) buildDataResponse(req *dnsRequest, frame []byte, ttl uint
 		}
 	}
 
-	encrypted := rc4Crypt(frame, t.Config.EncryptKey)
+	encrypted := aesGCMEncrypt(frame, t.Config.EncryptKey)
 	b64Str := base64.StdEncoding.EncodeToString(encrypted)
 
 	var chunks []string
@@ -958,7 +970,7 @@ func newUpDone(total uint32) *dnsUpDone {
 }
 
 // Utility Functions
-func rc4Crypt(data []byte, keyHex string) []byte {
+func aesGCMDecrypt(data []byte, keyHex string) []byte {
 	if len(data) == 0 {
 		return data
 	}
@@ -966,13 +978,48 @@ func rc4Crypt(data []byte, keyHex string) []byte {
 	if err != nil || len(keyBytes) != 16 {
 		return data
 	}
-	cipher, err := rc4.NewCipher(keyBytes)
+	block, err := aes.NewCipher(keyBytes)
 	if err != nil {
 		return data
 	}
-	result := make([]byte, len(data))
-	cipher.XORKeyStream(result, data)
+	aesgcm, err := cipher.NewGCM(block)
+	if err != nil {
+		return data
+	}
+	nonceSize := aesgcm.NonceSize()
+	if len(data) < nonceSize {
+		return data
+	}
+	nonce, cipherdata := data[:nonceSize], data[nonceSize:]
+	result, err := aesgcm.Open(nil, nonce, cipherdata, nil)
+	if err != nil {
+		return data
+	}
 	return result
+}
+
+func aesGCMEncrypt(data []byte, keyHex string) []byte {
+	if len(data) == 0 {
+		return data
+	}
+	keyBytes, err := hex.DecodeString(keyHex)
+	if err != nil || len(keyBytes) != 16 {
+		return data
+	}
+	block, err := aes.NewCipher(keyBytes)
+	if err != nil {
+		return data
+	}
+	aesgcm, err := cipher.NewGCM(block)
+	if err != nil {
+		return data
+	}
+	nonce := make([]byte, aesgcm.NonceSize())
+	if _, err := rand.Reader.Read(nonce); err != nil {
+		return data
+	}
+	ciphertext := aesgcm.Seal(nonce, nonce, data, nil)
+	return ciphertext
 }
 
 func parseMetaV1(data []byte) (metaV1, []byte, bool) {

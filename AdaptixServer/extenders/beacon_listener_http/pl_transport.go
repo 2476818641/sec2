@@ -3,8 +3,9 @@ package main
 import (
 	"bytes"
 	"context"
+	"crypto/aes"
+	"crypto/cipher"
 	"crypto/rand"
-	"crypto/rc4"
 	"crypto/rsa"
 	"crypto/tls"
 	"crypto/x509"
@@ -225,19 +226,15 @@ func (t *TransportHTTP) Start(ts Teamserver) error {
 
 		t.Server.TLSConfig = &tls.Config{
 			Certificates: []tls.Certificate{cert},
-			MinVersion:   tls.VersionTLS10,
+			MinVersion:   tls.VersionTLS12,
 			MaxVersion:   tls.VersionTLS13,
 			CipherSuites: []uint16{
 				tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
 				tls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
-				tls.TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256,
-				tls.TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA,
-				tls.TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA,
+				tls.TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,
+				tls.TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,
 				tls.TLS_RSA_WITH_AES_128_GCM_SHA256,
 				tls.TLS_RSA_WITH_AES_256_GCM_SHA384,
-				tls.TLS_RSA_WITH_AES_128_CBC_SHA256,
-				tls.TLS_RSA_WITH_AES_128_CBC_SHA,
-				tls.TLS_RSA_WITH_AES_256_CBC_SHA,
 			},
 		}
 
@@ -417,12 +414,23 @@ func (t *TransportHTTP) parseBeatAndData(ctx *gin.Context) (string, string, []by
 	if err != nil {
 		return "", "", nil, nil, errors.New("failed decrypt beat")
 	}
-	rc4crypt, errcrypt := rc4.NewCipher(encKey)
-	if errcrypt != nil {
-		return "", "", nil, nil, errors.New("rc4 decrypt error")
+	block, err := aes.NewCipher(encKey)
+	if err != nil {
+		return "", "", nil, nil, errors.New("failed decrypt beat")
 	}
-	agentInfo = make([]byte, len(agentInfoCrypt))
-	rc4crypt.XORKeyStream(agentInfo, agentInfoCrypt)
+	aesgcm, err := cipher.NewGCM(block)
+	if err != nil {
+		return "", "", nil, nil, errors.New("failed decrypt beat")
+	}
+	nonceSize := aesgcm.NonceSize()
+	if len(agentInfoCrypt) < nonceSize {
+		return "", "", nil, nil, errors.New("beat too short")
+	}
+	nonce, cipherdata := agentInfoCrypt[:nonceSize], agentInfoCrypt[nonceSize:]
+	agentInfo, err = aesgcm.Open(nil, nonce, cipherdata, nil)
+	if err != nil {
+		return "", "", nil, nil, errors.New("failed decrypt beat")
+	}
 
 	agentType = uint(binary.BigEndian.Uint32(agentInfo[:4]))
 	agentInfo = agentInfo[4:]

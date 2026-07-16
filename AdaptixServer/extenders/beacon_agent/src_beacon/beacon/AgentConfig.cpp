@@ -28,7 +28,17 @@ AgentConfig::AgentConfig()
 	this->encrypt_key = (PBYTE) MemAllocLocal(16);
 	memcpy(this->encrypt_key, packer->data() + 4 + profileSize, 16);
 
-	DecryptRC4(packer->data()+4, profileSize, this->encrypt_key, 16);
+	ULONG plainSize = profileSize - GCM_NONCE_SIZE - GCM_TAG_SIZE;
+	unsigned char* decrypted = (unsigned char*)MemAllocLocal(plainSize);
+	if (AESGCMDecrypt(packer->data()+4, plainSize, this->encrypt_key,
+	                  packer->data()+4, // nonce
+	                  decrypted,
+	                  packer->data()+4 + profileSize - GCM_TAG_SIZE)) { // tag
+		delete packer;
+		packer = new Packer(decrypted, plainSize);
+	} else {
+		MemFreeLocal((LPVOID*)&decrypted, plainSize);
+	}
 	
 	this->agent_type   = packer->Unpack32();
 	this->kill_date    = packer->Unpack32();

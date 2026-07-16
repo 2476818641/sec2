@@ -532,7 +532,7 @@ func (p *PluginAgent) GenerateProfiles(profile adaptix.BuildProfile) ([][]byte, 
 			return nil, err
 		}
 
-		cryptParams, err := RC4Crypt(packedParams, encryptKey)
+		cryptParams, err := AESGCMEncrypt(packedParams, encryptKey)
 		if err != nil {
 			return nil, err
 		}
@@ -847,13 +847,13 @@ func (p *PluginAgent) CreateAgent(beat []byte) (adaptix.AgentData, adaptix.Exten
 
 func (ext *ExtenderAgent) Encrypt(data []byte, key []byte) ([]byte, error) {
 	/// START CODE
-	return RC4Crypt(data, key)
+	return AESGCMEncrypt(data, key)
 	/// END CODE
 }
 
 func (ext *ExtenderAgent) Decrypt(data []byte, key []byte) ([]byte, error) {
 	/// START CODE
-	return RC4Crypt(data, key)
+	return AESGCMDecrypt(data, key)
 	/// END CODE
 }
 

