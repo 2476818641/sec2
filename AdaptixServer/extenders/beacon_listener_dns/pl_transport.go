@@ -6,7 +6,6 @@ import (
 	"context"
 	"crypto/aes"
 	"crypto/cipher"
-	"crypto/rand"
 	"encoding/base32"
 	"encoding/base64"
 	"encoding/binary"
