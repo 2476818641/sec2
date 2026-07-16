@@ -3,16 +3,22 @@
 
 import sys
 
+DJB2_SEED = 1572
+for i, arg in enumerate(sys.argv):
+    if arg == '--seed' and i + 1 < len(sys.argv):
+        DJB2_SEED = int(sys.argv[i + 1])
+        break
+
 def djb2a(input_str: str) -> int:
     input_str = input_str.lower()
-    hash_value = 1572
+    hash_value = DJB2_SEED
     for char in input_str:
         hash_value = ((hash_value << 5) + hash_value) + ord(char)
     return hash_value & 0xFFFFFFFF
 
 def djb2w(input_str: str) -> int:
     input_str = input_str.lower()
-    hash_value = 1572
+    hash_value = DJB2_SEED
     for i in range(0, len(input_str), 2):
         val = int.from_bytes(input_str[i:i+2].encode(), 'little')
         hash_value = ((hash_value << 5) + hash_value) + val

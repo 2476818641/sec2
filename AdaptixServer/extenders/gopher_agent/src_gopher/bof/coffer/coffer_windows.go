@@ -19,10 +19,9 @@ import (
 )
 
 const (
-	MEM_COMMIT             = windows.MEM_COMMIT
-	MEM_RESERVE            = windows.MEM_RESERVE
-	MEM_TOP_DOWN           = windows.MEM_TOP_DOWN
-	PAGE_EXECUTE_READWRITE = windows.PAGE_EXECUTE_READWRITE
+	MEM_COMMIT   = windows.MEM_COMMIT
+	MEM_RESERVE  = windows.MEM_RESERVE
+	MEM_TOP_DOWN = windows.MEM_TOP_DOWN
 	// PAGE_EXECUTE_READ is a Windows constant used with Windows API calls
 	PAGE_EXECUTE_READ = windows.PAGE_EXECUTE_READ
 	// PAGE_READWRITE is a Windows constant used with Windows API calls

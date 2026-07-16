@@ -52,7 +52,11 @@ void* __cdecl memcpy(void* Dst, const void* Src, size_t Size)
 	return Dst;
 }
 
-CHAR HdChrA(CHAR c) { return (CHAR)((BYTE)c ^ 0x55); }
+#ifndef STR_XOR_KEY
+#define STR_XOR_KEY 0x55
+#endif
+
+CHAR HdChrA(CHAR c) { return (CHAR)((BYTE)c ^ STR_XOR_KEY); }
 WCHAR HdChrW(WCHAR c) { return c; }
 
 SYSMODULES* SysModules = NULL;
