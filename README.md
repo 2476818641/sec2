@@ -1,69 +1,57 @@
-# AdaptixC2 v1.2
+# AdaptixC2 v1.2 — i18n-Edition (sec2)
 
-FEB, 28: [What has changed in version v1.2](https://adaptix-framework.gitbook.io/adaptix-framework/changelog-and-updates/v1.1-greater-than-v1.2)?
+本项目基于 [AdaptixC2 v1.2](https://github.com/Adaptix-Framework/AdaptixC2) 进行汉化，并对服务端及 Agent 进行了安全加固修改。
 
-Adaptix is an extensible post-exploitation and adversarial emulation framework made for authorized penetration testing. The Adaptix server is written in Golang and to allow operator flexibility. The GUI Client is written in C++ QT, allowing it to be used on Linux, Windows, and MacOS operating systems. [Full documentation is available here](https://adaptix-framework.gitbook.io/adaptix-framework).
+---
 
-![](https://adaptix-framework.gitbook.io/adaptix-framework/~gitbook/image?url=https%3A%2F%2F2104178602-files.gitbook.io%2F%7E%2Ffiles%2Fv0%2Fb%2Fgitbook-x-prod.appspot.com%2Fo%2Fspaces%252FS8p8XLFtLmf0NkofQvoa%252Fuploads%252FB6UKkj5WzVJ4Gty9dKYD%252FScreenshot_20251226_235357.png%3Falt%3Dmedia%26token%3Ddd04b937-3f02-43b2-a7bd-4dd8c876d763&width=768&dpr=4&quality=100&sign=7ee59d4&sv=2)
+## 声明
 
+本项目仅供 **授权安全测试** 与 **红队行动** 使用。未经授权使用本工具可能违反当地及国际法律，使用者自行承担一切责任。
 
+本项目为 AdaptixC2 的第三方修改版，与原项目开发者无关。原始项目使用 [GPL v3](LICENSE) 协议，本修改版持续沿用该协议。
 
-## Legal Warning
+```
+Copyright (C) Adaptix-Framework
+Modifications (C) 2025 sec2
+Licensed under GNU General Public License v3.0
+```
 
-This tool is designed for AUTHORIZED security testing and red team operations ONLY. Unauthorized use is strictly prohibited and may violate local and international laws. Use at your own risk.
+---
 
+## 修改内容
 
+| 类别 | 说明 |
+|------|------|
+| 流量特征 | 移除 `Server: AdaptixC2` / `Adaptix-Version` 等标识头，404 页面去特征化，TLS 仅保留 GCM 套件 |
+| 加密升级 | RC4 → AES-128-GCM（服务端 Go 标准库 + Agent 紧凑型自实现），覆盖所有通信层级 |
+| DNS 传输 | 移除 `encrypt_key` 重复加密层，仅保留 `SessionKey` 保护 |
+| 内存特征 | 睡眠 XOR 混淆改为 AES-128-GCM；DJB2 哈希种子可构建时定制；Syscall stub 指令多样化；ETW/AMSI 补丁运行时混淆；DLL 名称 XOR 键可定制 |
+| i18n | 客户端界面简体中文本地化 |
 
-## Getting Started
+---
 
-Please checkout the [wiki](https://adaptix-framework.gitbook.io/adaptix-framework/adaptix-c2/getting-starting/installation).
+## 构建与兼容性
 
+构建方式与原项目相同。自定义哈希种子（可选）：
 
+```bash
+# 生成自定义 API 哈希头文件
+python hashes.py --seed <value> > ApiDefines.h
 
-## Features
-* Server/Client Architecture for Multiplayer Support 
-* Cross-platform GUI client 
-* Fully encrypted communications 
-* Listener and Agents as Plugin (Extender)
-* AxScript Engine
-* Task and Jobs storage 
-* Credentials Manager
-* Targets Manager
-* Remote Terminal / Shell
-* Files and Process browsers
-* Socks4 / Socks5 / Socks5 Auth support
-* Local and Reverse port forwarding support
-* BOF & Async BOF support
-* Linking Agents and Sessions Graph
-* Agents Health Checker
-* Agents KillDate and WorkingTime control
-* Windows/Linux/MacOs agents support
+# 构建代理时传递种子和 XOR 密钥
+make CFLAGS="-DDJb2_SEED=<value> -DSTR_XOR_KEY=<value>"
+```
 
+跨版本通信不兼容（AES-GCM 格式不同于原始 RC4），须配套使用修改版服务端与代理。
 
-## Current Extenders
-* HTTP/S Beacon Listener
-* DNS/DoH Beacon Listener
-* SMB Beacon Listener
-* TCP Beacon Listener
-* Beacon Agent
-* TCP/mTLS Gopher Listener
-* Gopher Agent
+---
 
+## 原始项目
 
+- [AdaptixC2 GitHub](https://github.com/Adaptix-Framework/AdaptixC2)
+- [官方文档](https://adaptix-framework.gitbook.io/adaptix-framework)
+- 版本：v1.2
 
-## Extension-Kit
+---
 
-Official [Extension-Kit](https://github.com/Adaptix-Framework/Extension-Kit) on GitHub
-
-![](https://adaptix-framework.gitbook.io/adaptix-framework/~gitbook/image?url=https%3A%2F%2F2104178602-files.gitbook.io%2F%7E%2Ffiles%2Fv0%2Fb%2Fgitbook-x-prod.appspot.com%2Fo%2Fspaces%252FS8p8XLFtLmf0NkofQvoa%252Fuploads%252FyRPFnlkvGJr2UEE1uzA2%252FScreenshot_20260129_233929.png%3Falt%3Dmedia%26token%3D61c90128-20f4-4756-80f4-24e7122c7c10&width=768&dpr=3&quality=100&sign=f15a166a&sv=2)
-
-![](https://adaptix-framework.gitbook.io/adaptix-framework/~gitbook/image?url=https%3A%2F%2F2104178602-files.gitbook.io%2F%7E%2Ffiles%2Fv0%2Fb%2Fgitbook-x-prod.appspot.com%2Fo%2Fspaces%252FS8p8XLFtLmf0NkofQvoa%252Fuploads%252FnAVr0nfGpuQkiSYSPQvU%252FScreenshot_20260129_233944.png%3Falt%3Dmedia%26token%3Dd98dfda1-1607-45ba-9a92-deb420293335&width=768&dpr=3&quality=100&sign=7c1d6ea&sv=2)
-
-![](https://adaptix-framework.gitbook.io/adaptix-framework/~gitbook/image?url=https%3A%2F%2F2104178602-files.gitbook.io%2F%7E%2Ffiles%2Fv0%2Fb%2Fgitbook-x-prod.appspot.com%2Fo%2Fspaces%252FS8p8XLFtLmf0NkofQvoa%252Fuploads%252Fxxn9BnUfG0byuRamOy4y%252FScreenshot_20260129_233957.png%3Falt%3Dmedia%26token%3D053c7d47-39af-433b-a2d2-87a1b8dec7bb&width=768&dpr=3&quality=100&sign=f1581010&sv=2)
-
-
-
-
-# CONTRIBUTING
-
-Please push сhanges to the **dev** branch. Otherwise, changes will be made manually in the dev branch.
+> 汉化 + 加固 by sec2 · GPL v3
