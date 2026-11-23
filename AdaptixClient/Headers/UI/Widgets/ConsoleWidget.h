@@ -21,6 +21,8 @@ class AdaptixWidget;
 
 class ConsoleWidget : public DockTab
 {
+    Q_DECLARE_TR_FUNCTIONS(ConsoleWidget)
+
     AdaptixWidget* adaptixWidget = nullptr;
 
     QGridLayout*      MainGridLayout   = nullptr;

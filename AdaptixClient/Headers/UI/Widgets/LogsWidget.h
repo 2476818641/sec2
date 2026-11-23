@@ -9,6 +9,8 @@ class AdaptixWidget;
 
 class LogsWidget : public DockTab
 {
+    Q_DECLARE_TR_FUNCTIONS(LogsWidget)
+
     QGridLayout*     mainGridLayout      = nullptr;
     QGridLayout*     logsGridLayout      = nullptr;
     // QGridLayout*     todoGridLayout      = nullptr;

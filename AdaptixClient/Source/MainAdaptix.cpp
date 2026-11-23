@@ -21,7 +21,9 @@ MainAdaptix::MainAdaptix()
     storage  = new Storage();
     settings = new Settings(this);
 
-    LangManager::instance().switchLanguage(settings->data.Language);
+    auto& languages = LangManager::instance();
+    if (!languages.switchLanguage(settings->data.Language))
+        settings->data.Language = languages.currentLanguage();
 
     ConsoleThemeManager::instance().loadTheme(settings->data.ConsoleTheme);
 

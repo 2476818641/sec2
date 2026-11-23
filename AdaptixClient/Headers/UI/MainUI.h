@@ -10,6 +10,8 @@ class WebSocketWorker;
 
 class MainUI : public QMainWindow
 {
+    Q_DECLARE_TR_FUNCTIONS(MainUI)
+
     QTabWidget* mainuiTabWidget = nullptr;
 
     QVector<AdaptixWidget*> AdaptixProjects;

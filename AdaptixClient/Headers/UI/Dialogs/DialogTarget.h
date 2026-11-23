@@ -5,6 +5,8 @@
 
 class DialogTarget : public QDialog
 {
+    Q_DECLARE_TR_FUNCTIONS(DialogTarget)
+
     QGridLayout* mainGridLayout = nullptr;
     QLabel*      computerLabel  = nullptr;
     QLineEdit*   computerInput  = nullptr;

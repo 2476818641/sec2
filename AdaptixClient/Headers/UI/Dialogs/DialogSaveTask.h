@@ -5,6 +5,8 @@
 
 class DialogSaveTask : public QDialog
 {
+    Q_DECLARE_TR_FUNCTIONS(DialogSaveTask)
+
     QGridLayout* mainGridLayout   = nullptr;
     QLabel*      commandLineLabel = nullptr;
     QLineEdit*   commandLineInput = nullptr;

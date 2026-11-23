@@ -1345,6 +1345,12 @@
 <context>
     <name>DialogListener</name>
     <message>
+        <location filename="../../Source/UI/Dialogs/DialogListener.cpp" line="208"/>
+        <location filename="../../Source/UI/Dialogs/DialogListener.cpp" line="253"/>
+        <source>any</source>
+        <translation>任意</translation>
+    </message>
+    <message>
         <source>Create listener</source>
         <translation type="vanished">创建监听器</translation>
     </message>
@@ -1611,6 +1617,16 @@
 </context>
 <context>
     <name>DialogSettings</name>
+    <message>
+        <location filename="../../Source/UI/Dialogs/DialogSettings.cpp" line="446"/>
+        <source>Language</source>
+        <translation>语言</translation>
+    </message>
+    <message>
+        <location filename="../../Source/UI/Dialogs/DialogSettings.cpp" line="446"/>
+        <source>Could not load the selected language.</source>
+        <translation>无法加载所选语言。</translation>
+    </message>
     <message>
         <source>Settings</source>
         <translation type="vanished">设置</translation>
@@ -2229,6 +2245,46 @@
 </context>
 <context>
     <name>DialogUploader</name>
+    <message>
+        <location filename="../../Source/UI/Dialogs/DialogUploader.cpp" line="9"/>
+        <source>Uploading...</source>
+        <translation>正在上传…</translation>
+    </message>
+    <message>
+        <location filename="../../Source/UI/Dialogs/DialogUploader.cpp" line="15"/>
+        <source>Preparing upload...</source>
+        <translation>正在准备上传…</translation>
+    </message>
+    <message>
+        <location filename="../../Source/UI/Dialogs/DialogUploader.cpp" line="16"/>
+        <source>Speed: 0 KB/s</source>
+        <translation>速度：0 KB/s</translation>
+    </message>
+    <message>
+        <location filename="../../Source/UI/Dialogs/DialogUploader.cpp" line="17"/>
+        <source>Cancel</source>
+        <translation>取消</translation>
+    </message>
+    <message>
+        <location filename="../../Source/UI/Dialogs/DialogUploader.cpp" line="36"/>
+        <source>Uploaded %1 / %2 MB</source>
+        <translation>已上传 %1 / %2 MB</translation>
+    </message>
+    <message>
+        <location filename="../../Source/UI/Dialogs/DialogUploader.cpp" line="40"/>
+        <source>Speed: %1 KB/s</source>
+        <translation>速度：%1 KB/s</translation>
+    </message>
+    <message>
+        <location filename="../../Source/UI/Dialogs/DialogUploader.cpp" line="46"/>
+        <source>Upload completed.</source>
+        <translation>上传完成。</translation>
+    </message>
+    <message>
+        <location filename="../../Source/UI/Dialogs/DialogUploader.cpp" line="57"/>
+        <source>Upload Error</source>
+        <translation>上传失败</translation>
+    </message>
     <message>
         <location filename="../../Source/UI/Dialogs/DialogUploader.cpp" line="83"/>
         <source>Uploading: %1 (%2 MB)</source>

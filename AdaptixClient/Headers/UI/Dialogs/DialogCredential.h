@@ -5,6 +5,8 @@
 
 class DialogCredential : public QDialog
 {
+    Q_DECLARE_TR_FUNCTIONS(DialogCredential)
+
     QGridLayout* mainGridLayout = nullptr;
     QLabel*      usernameLabel  = nullptr;
     QLineEdit*   usernameInput  = nullptr;

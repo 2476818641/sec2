@@ -26,6 +26,8 @@ typedef struct BrowserProcessDataUnix {
 
 class BrowserProcessWidget : public DockTab
 {
+    Q_DECLARE_TR_FUNCTIONS(BrowserProcessWidget)
+
     QGridLayout*        mainGridLayout    = nullptr;
     QGridLayout*        listGridLayout    = nullptr;
     QTreeWidget*        treeBrowserWidget = nullptr;

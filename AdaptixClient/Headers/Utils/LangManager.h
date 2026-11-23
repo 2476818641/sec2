@@ -3,6 +3,7 @@
 
 #include <QObject>
 #include <QTranslator>
+#include <memory>
 
 class LangManager : public QObject
 {
@@ -13,7 +14,7 @@ public:
 
     // "zh_CN" or "en_US"
     QString currentLanguage() const;
-    void    switchLanguage(const QString &langCode);
+    bool    switchLanguage(const QString &langCode);
 
 Q_SIGNALS:
     void languageChanged();
@@ -21,8 +22,8 @@ Q_SIGNALS:
 private:
     explicit LangManager(QObject *parent = nullptr);
 
-    QTranslator m_translator;
-    QString     m_current;
+    std::unique_ptr<QTranslator> m_translator;
+    QString                      m_current;
 };
 
 #endif // LANGMANAGER_H
