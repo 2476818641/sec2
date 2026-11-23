@@ -46,6 +46,8 @@ public:
 
 class BrowserFilesWidget : public DockTab
 {
+    Q_DECLARE_TR_FUNCTIONS(BrowserFilesWidget)
+
     QGridLayout*        mainGridLayout    = nullptr;
     QGridLayout*        listGridLayout    = nullptr;
     QTreeWidget*        treeBrowserWidget = nullptr;

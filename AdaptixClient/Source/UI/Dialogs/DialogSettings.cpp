@@ -8,6 +8,7 @@
 #include <Utils/LangManager.h>
 #include <QShowEvent>
 #include <QFileDialog>
+#include <QSignalBlocker>
 #include <algorithm>
 #include <oclero/qlementine.hpp>
 
@@ -435,8 +436,15 @@ void DialogSettings::onApply() const
 
     QString selectedLang = languageCombo->currentData().toString();
     if (settings->data.Language != selectedLang) {
-        settings->data.Language = selectedLang;
-        LangManager::instance().switchLanguage(selectedLang);
+        if (LangManager::instance().switchLanguage(selectedLang)) {
+            settings->data.Language = selectedLang;
+        } else {
+            {
+                const QSignalBlocker blocker(languageCombo);
+                languageCombo->setCurrentIndex(languageCombo->findData(settings->data.Language));
+            }
+            QMessageBox::warning(languageCombo, tr("Language"), tr("Could not load the selected language."));
+        }
     }
 
     settings->data.RemoteTerminalBufferSize = terminalSizeSpin->value();

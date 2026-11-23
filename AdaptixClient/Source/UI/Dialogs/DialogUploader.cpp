@@ -6,15 +6,15 @@
 
 static void setupDialogUI(DialogUploader* dlg, QProgressBar*& progressBar, QLabel*& statusLabel, QLabel*& speedLabel, QPushButton*& cancelButton)
 {
-    dlg->setWindowTitle(dlg->tr("Uploading..."));
+    dlg->setWindowTitle(DialogUploader::tr("Uploading..."));
     dlg->resize(400, 150);
     dlg->setProperty("Main", "base");
 
     progressBar   = new QProgressBar(dlg);
     progressBar->setRange(0, 100);
-    statusLabel   = new QLabel(dlg->tr("Preparing upload..."), dlg);
-    speedLabel    = new QLabel(dlg->tr("Speed: 0 KB/s"), dlg);
-    cancelButton  = new QPushButton(dlg->tr("Cancel"), dlg);
+    statusLabel   = new QLabel(DialogUploader::tr("Preparing upload..."), dlg);
+    speedLabel    = new QLabel(DialogUploader::tr("Speed: 0 KB/s"), dlg);
+    cancelButton  = new QPushButton(DialogUploader::tr("Cancel"), dlg);
 
     QVBoxLayout* layout = new QVBoxLayout(dlg);
     layout->addWidget(statusLabel);
@@ -30,20 +30,20 @@ static void connectWorkerSignals(DialogUploader* dlg, UploaderWorker* worker, QT
     QObject::connect(workerThread, &QThread::started,     worker, &UploaderWorker::start);
     QObject::connect(cancelButton, &QPushButton::clicked, worker, &UploaderWorker::cancel);
 
-    QObject::connect(worker, &UploaderWorker::progress, dlg, [dlg, progressBar, statusLabel](const qint64 sent, const qint64 total) {
+    QObject::connect(worker, &UploaderWorker::progress, dlg, [progressBar, statusLabel](const qint64 sent, const qint64 total) {
         int percent = total > 0 ? static_cast<int>((sent * 100) / total) : 0;
         progressBar->setValue(percent);
-        statusLabel->setText(dlg->tr("Uploaded %1 / %2 MB").arg(sent / (1024 * 1024)).arg(total / (1024 * 1024)));
+        statusLabel->setText(DialogUploader::tr("Uploaded %1 / %2 MB").arg(sent / (1024 * 1024)).arg(total / (1024 * 1024)));
     });
 
-    QObject::connect(worker, &UploaderWorker::speedUpdated, dlg, [dlg, speedLabel](const double kbps) {
-        speedLabel->setText(dlg->tr("Speed: %1 KB/s").arg(kbps, 0, 'f', 2));
+    QObject::connect(worker, &UploaderWorker::speedUpdated, dlg, [speedLabel](const double kbps) {
+        speedLabel->setText(DialogUploader::tr("Speed: %1 KB/s").arg(kbps, 0, 'f', 2));
     });
 
     QObject::connect(worker, &UploaderWorker::finished, dlg, [dlg, worker, progressBar, statusLabel, speedLabel]() {
         if (!worker->IsError()) {
             progressBar->setValue(100);
-            statusLabel->setText(dlg->tr("Upload completed."));
+            statusLabel->setText(DialogUploader::tr("Upload completed."));
             speedLabel->setVisible(false);
             Q_EMIT dlg->uploadFinished(true);
             dlg->accept();
@@ -54,7 +54,7 @@ static void connectWorkerSignals(DialogUploader* dlg, UploaderWorker* worker, QT
     });
 
     QObject::connect(worker, &UploaderWorker::failed, dlg, [dlg](const QString &msg) {
-        QMessageBox::critical(dlg, dlg->tr("Upload Error"), msg);
+        QMessageBox::critical(dlg, DialogUploader::tr("Upload Error"), msg);
         Q_EMIT dlg->uploadFinished(false);
         dlg->reject();
     });

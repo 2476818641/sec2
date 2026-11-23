@@ -13,6 +13,8 @@ class KPH_ConsoleInput;
 
 class AxConsoleWidget : public DockTab
 {
+    Q_DECLARE_TR_FUNCTIONS(AxConsoleWidget)
+
     AdaptixWidget*   adaptixWidget = nullptr;
     QPointer<AxScriptManager> scriptManager;
 

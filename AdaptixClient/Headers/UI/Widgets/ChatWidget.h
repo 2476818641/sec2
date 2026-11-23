@@ -9,6 +9,8 @@ class AdaptixWidget;
 
 class ChatWidget : public DockTab
 {
+    Q_DECLARE_TR_FUNCTIONS(ChatWidget)
+
     AdaptixWidget*   adaptixWidget  = nullptr;
     QLabel*          usernameLabel  = nullptr;
     QLineEdit*       chatInput      = nullptr;
